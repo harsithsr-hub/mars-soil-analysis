@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mars Soil Analysis</title>
+
+<!-- Simple Fonts -->
+<style>
+body { font-family: Arial, sans-serif; margin:0; background:#111; color:#eee; }
+header { background:#1f1f1f; padding:15px; text-align:center; font-size:24px; }
+button { padding:8px 12px; margin:5px; cursor:pointer; }
+canvas { border:1px solid white; }
+.section { padding:15px; }
+#tutorialModal {
+  display:none;
+  position:fixed;
+  top:0; left:0;
+  width:100%; height:100%;
+  background:rgba(0,0,0,0.8);
+}
+#tutorialContent {
+  background:#222;
+  margin:10% auto;
+  padding:20px;
+  width:60%;
+}
+</style>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<!-- Three.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+
+<body>
+
+<header>Mars Soil Analysis: Humans vs AI</header>
+
+<div class="section">
+<h2>Upload Image</h2>
+<input type="file" id="imageUpload">
+<br><br>
+<canvas id="imageCanvas" width="600" height="400"></canvas>
+<br>
+<button onclick="startPolygon()">Start Polygon</button>
+<button onclick="finishPolygon()">Finish Polygon</button>
+</div>
+
+<div class="section">
+<h2>Accuracy Data</h2>
+<button onclick="addData()">Add Accuracy Sample</button>
+<canvas id="pieChart"></canvas>
+<canvas id="scatterChart"></canvas>
+<p id="meanResult"></p>
+</div>
+
+<div class="section">
+<h2>3D Rover Simulation</h2>
+<div id="threeContainer"></div>
+</div>
+
+<button onclick="openTutorial()" style="position:fixed;bottom:10px;right:10px;">Tutorial</button>
+
+<div id="tutorialModal">
+<div id="tutorialContent">
+<h2>Tutorial</h2>
+<p><b>Soil Components:</b> Rocks, Dust, Minerals</p>
+
+<p><b>How to Highlight:</b></p>
+<ol>
+<li>Click "Start Polygon"</li>
+<li>Click points around the soil component</li>
+<li>Click "Finish Polygon"</li>
+<li>Repeat for each component</li>
+</ol>
+
+<p><b>Goal:</b> Compare AI vs Human accuracy without guessing.</p>
+
+<button onclick="closeTutorial()">Close</button>
+</div>
+</div>
+
+<script>
+// Image + Polygon Tool
+let canvas = document.getElementById("imageCanvas");
+let ctx = canvas.getContext("2d");
+let points = [];
+let drawing = false;
+
+imageUpload.onchange = function(e) {
+  let img = new Image();
+  img.onload = () => ctx.drawImage(img,0,0,600,400);
+  img.src = URL.createObjectURL(e.target.files[0]);
+}
+
+canvas.addEventListener("click", function(e){
+  if(!drawing) return;
+  let rect = canvas.getBoundingClientRect();
+  let x = e.clientX - rect.left;
+  let y = e.clientY - rect.top;
+  points.push({x,y});
+  ctx.fillRect(x,y,3,3);
+});
+
+function startPolygon(){ drawing = true; points=[]; }
+function finishPolygon(){
+  drawing = false;
+  ctx.beginPath();
+  ctx.moveTo(points[0].x, points[0].y);
+  points.forEach(p=>ctx.lineTo(p.x,p.y));
+  ctx.closePath();
+  ctx.strokeStyle = "red";
+  ctx.stroke();
+}
+
+// Data + Charts
+let dataPoints = [];
+
+function addData(){
+  let val = prompt("Enter accuracy %:");
+  if(!val) return;
+  dataPoints.push(Number(val));
+  updateCharts();
+}
+
+function mean(arr){ return arr.reduce((a,b)=>a+b,0)/arr.length; }
+
+let pieChart = new Chart(document.getElementById('pieChart'), {
+  type: 'pie',
+  data: { labels:['AI','Human'], datasets:[{ data:[50,50] }] }
+});
+
+let scatterChart = new Chart(document.getElementById('scatterChart'), {
+  type: 'scatter',
+  data: { datasets:[{ label:'Accuracy', data:[] }] }
+});
+
+function updateCharts(){
+  scatterChart.data.datasets[0].data = dataPoints.map((v,i)=>({x:i,y:v}));
+  scatterChart.update();
+  document.getElementById("meanResult").innerText = "Mean Accuracy: " + mean(dataPoints);
+}
+
+// Tutorial
+function openTutorial(){ document.getElementById('tutorialModal').style.display='block'; }
+function closeTutorial(){ document.getElementById('tutorialModal').style.display='none'; }
+
+// 3D Rover (Basic)
+let scene = new THREE.Scene();
+let camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+let renderer = new THREE.WebGLRenderer();
+renderer.setSize(600,400);
+document.getElementById("threeContainer").appendChild(renderer.domElement);
+
+let geometry = new THREE.PlaneGeometry(10,10,10,10);
+let material = new THREE.MeshBasicMaterial({color:0x884422, wireframe:true});
+let terrain = new THREE.Mesh(geometry, material);
+scene.add(terrain);
+
+let roverGeo = new THREE.BoxGeometry(1,1,1);
+let roverMat = new THREE.MeshBasicMaterial({color:0xffffff});
+let rover = new THREE.Mesh(roverGeo, roverMat);
+rover.position.z = 0.5;
+scene.add(rover);
+
+camera.position.z = 5;
+
+function animate(){
+  requestAnimationFrame(animate);
+  rover.position.x += 0.01;
+  renderer.render(scene, camera);
+}
+animate();
+</script>
+
+</body>
+</html>
